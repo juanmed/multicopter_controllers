@@ -116,6 +116,35 @@ Eigen::Vector3d FeedbackLinearizationController::computeDesiredAngularVelocity(c
   return angular_velocity;	
 }
 
+Eigen::Vector3d FeedbackLinearizationController::computeDesiredTorque(const Eigen::Vector3d angular_velocity, 
+	 																	 const Eigen::Vector3d angular_velocity_ref,
+																		 const Eigen::Vector3d torque_ref)
+{
+	Eigen::Vector3d torque, gains, angular_velocity_error;
+	gains << Kr_, Kr_, Kr_;
+	angular_velocity_error = angular_velocity - angular_velocity_ref;
+	torque = - inertia_tensor_ * gains.asDiagonal() * angular_velocity_error 
+					 - angular_velocity_ref.cross(inertia_tensor_ * angular_velocity_ref)
+					 + torque_ref
+					 + angular_velocity.cross(inertia_tensor_ * angular_velocity);
+
+	//@TODO Torque saturation
+	return torque;
+}
+
+Eigen::Vector4d FeedbackLinearizationController::computeRotorRPM(double thrust, const Eigen::Vector3d torque,
+																																 const Eigen::Matrix4d mixer_matrix_inv)
+{
+	Eigen::Vector4d general_input, rotors_rpm;
+	general_input << thrust, torque(0), torque(1), torque(2);
+	rotors_rpm = mixer_matrix_inv * general_input;
+	// the previous mapping returns rpm^2, then take sqrt of each element
+	for (uint i = 0; i < 4; i++){
+		rotors_rpm(i) = std::sqrt(rotors_rpm(i));
+	}
+	return rotors_rpm;
+}
+
 Eigen::Vector3d	FeedbackLinearizationController::matrixToEulerZYX(const Eigen::Matrix3d R)
 {
 	double roll, pitch, yaw;
