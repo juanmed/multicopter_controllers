@@ -26,6 +26,8 @@ class FeedbackLinearizationController
 																									const Eigen::Vector3d euler_dot_ref);
 		Eigen::Vector3d computeDesiredTorque(const Eigen::Vector3d angular_velocity, const Eigen::Vector3d angular_velocity_ref,
 																				 const Eigen::Vector3d torque_ref);
+		Eigen::Vector3d computeDesiredTorque2(const Eigen::Vector3d angular_velocity, const Eigen::Vector3d angular_velocity_ref,
+																				 const Eigen::Vector3d angular_velocity_dot_ref);
 		Eigen::Vector4d computeRotorRPM(double thrust, const Eigen::Vector3d torque, const Eigen::Matrix4d mixer_matrix_inv); 	
 
 	private:

@@ -132,6 +132,20 @@ Eigen::Vector3d FeedbackLinearizationController::computeDesiredTorque(const Eige
 	return torque;
 }
 
+Eigen::Vector3d FeedbackLinearizationController::computeDesiredTorque2(const Eigen::Vector3d angular_velocity, 
+	 																	 const Eigen::Vector3d angular_velocity_ref,
+																		 const Eigen::Vector3d angular_velocity_dot_ref)
+{
+	Eigen::Vector3d torque, gains, angular_velocity_error, input;
+	gains << Kr_, Kr_, Kr_;
+	angular_velocity_error = angular_velocity - angular_velocity_ref;
+
+	input = -1.0 * gains.asDiagonal() * angular_velocity_error + angular_velocity_dot_ref;
+	torque = inertia_tensor_ * input + angular_velocity.cross( inertia_tensor_ * angular_velocity);
+	//@TODO Torque saturation
+	return torque;
+}
+
 Eigen::Vector4d FeedbackLinearizationController::computeRotorRPM(double thrust, const Eigen::Vector3d torque,
 																																 const Eigen::Matrix4d mixer_matrix_inv)
 {
