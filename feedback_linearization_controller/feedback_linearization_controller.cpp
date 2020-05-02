@@ -52,12 +52,12 @@ Eigen::Vector3d FeedbackLinearizationController::computeDesiredAcceleration(cons
 
 Eigen::Vector3d FeedbackLinearizationController::computeDesiredThrustVector(const Eigen::Quaterniond q, const Eigen::Vector3d a_des)
 {
-	Eigen::Vector3d wzb, wzb_des;
+	Eigen::Vector3d wzb, wzb_des = Eigen::Vector3d::Zero();
 	double thrust;
 
 	// wzb is body z-axis in world frame
 	wzb = q.toRotationMatrix()*e3_;
-	thrust = mass_ * wzb.dot(a_des);
+	thrust = mass_ * wzb.dot(a_des); //a_des.norm(); 
 	wzb_des = a_des.normalized(); /// a_des.norm();
 
 	//@TODO implement thrust value saturation
@@ -66,8 +66,8 @@ Eigen::Vector3d FeedbackLinearizationController::computeDesiredThrustVector(cons
 
 Eigen::Matrix3d FeedbackLinearizationController::computeDesiredOrientation(const Eigen::Vector3d thrust_vector, double yaw_ref)
 {
-	Eigen::Vector3d wzb_des, wyc_des, wxb_des, wyb_des;
-	Eigen::Matrix3d Rbw_des;
+	Eigen::Vector3d wzb_des, wyc_des, wxb_des, wyb_des = Eigen::Vector3d::Zero();
+	Eigen::Matrix3d Rbw_des = Eigen::Matrix3d::Zero();
 
 	wzb_des = thrust_vector.normalized();
 
@@ -89,10 +89,10 @@ Eigen::Vector3d FeedbackLinearizationController::computeDesiredAngularVelocity(c
 																																							 const Eigen::Matrix3d Rbw_des, 
 																																							 const Eigen::Vector3d euler_dot_ref)
 {
-	Eigen::Vector3d gains, euler, euler_des, euler_dot, angular_velocity, u;
-	double roll, pitch, yaw;
+	Eigen::Vector3d gains, euler, euler_des, euler_dot, angular_velocity, u = Eigen::Vector3d::Zero();
+	double roll, pitch, yaw = 0.0;
 	// The Q matrix maps from body frame angular velocities to world frame eugler angle velocities
-	Eigen::Matrix3d Q; 
+	Eigen::Matrix3d Q = Eigen::Matrix3d::Zero(); 
 
   gains << Kr_, Kr_, Kr_;
   euler = matrixToEulerZYX(Rbw); //Rbw.eulerAngles(2,1,0);
@@ -120,7 +120,7 @@ Eigen::Vector3d FeedbackLinearizationController::computeDesiredTorque(const Eige
 	 																	 const Eigen::Vector3d angular_velocity_ref,
 																		 const Eigen::Vector3d torque_ref)
 {
-	Eigen::Vector3d torque, gains, angular_velocity_error;
+	Eigen::Vector3d torque, gains, angular_velocity_error = Eigen::Vector3d::Zero();
 	gains << Kr_, Kr_, Kr_;
 	angular_velocity_error = angular_velocity - angular_velocity_ref;
 	torque = - inertia_tensor_ * gains.asDiagonal() * angular_velocity_error 
@@ -136,7 +136,7 @@ Eigen::Vector3d FeedbackLinearizationController::computeDesiredTorque2(const Eig
 	 																	 const Eigen::Vector3d angular_velocity_ref,
 																		 const Eigen::Vector3d angular_velocity_dot_ref)
 {
-	Eigen::Vector3d torque, gains, angular_velocity_error, input;
+	Eigen::Vector3d torque, gains, angular_velocity_error, input = Eigen::Vector3d::Zero();
 	gains << Kr_, Kr_, Kr_;
 	angular_velocity_error = angular_velocity - angular_velocity_ref;
 
@@ -149,7 +149,7 @@ Eigen::Vector3d FeedbackLinearizationController::computeDesiredTorque2(const Eig
 Eigen::Vector4d FeedbackLinearizationController::computeRotorRPM(double thrust, const Eigen::Vector3d torque,
 																																 const Eigen::Matrix4d mixer_matrix_inv)
 {
-	Eigen::Vector4d general_input, rotors_rpm;
+	Eigen::Vector4d general_input, rotors_rpm = Eigen::Vector4d::Zero();
 	general_input << thrust, torque(0), torque(1), torque(2);
 	rotors_rpm = mixer_matrix_inv * general_input;
 	// the previous mapping returns rpm^2, then take sqrt of each element
@@ -162,7 +162,7 @@ Eigen::Vector4d FeedbackLinearizationController::computeRotorRPM(double thrust, 
 Eigen::Vector3d	FeedbackLinearizationController::matrixToEulerZYX(const Eigen::Matrix3d R)
 {
 	double roll, pitch, yaw;
-	Eigen::Vector3d euler_angles;
+	Eigen::Vector3d euler_angles = Eigen::Vector3d::Zero();
 
 	pitch = std::asin(-1.0 * R(2, 0));
 	roll = std::atan2(R(2, 1) / std::cos(pitch), R(2, 2) / std::cos(pitch));
