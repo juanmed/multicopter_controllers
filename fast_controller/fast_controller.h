@@ -25,12 +25,16 @@ class FastController
 			double collective_thrust);
 		Eigen::Matrix3d computeDesiredOrientation(const Eigen::Quaterniond q, 
 			const Eigen::Vector3d thrust_vector, double yaw_ref); 
-		Eigen::Vector3d computeCommandAcceleration(const Eigen::Quaterniond q, double thrust);
+		Eigen::Vector3d computeCommandAcceleration(const Eigen::Quaterniond q, const Eigen::Vector3d v, 
+			double thrust);
 		Eigen::Vector3d computeCollectiveThrustVectorDot(const Eigen::Vector3d v, const	Eigen::Vector3d v_ref,
 			const Eigen::Vector3d a, const Eigen::Vector3d a_ref, const Eigen::Vector3d j_ref);
-		Eigen::Vector3d computeDesiredAngularVelocity(const Eigen::Vector3d a_cmd,
-		 	const Eigen::Vector3d thrust_vector, const Eigen::Vector3d thrust_vector_dot, double yaw_ref,
-		 	double yaw_dot_ref);
+		Eigen::Vector3d computeDesiredAngularVelocity(const Eigen::Vector3d thrust_vector, 
+			const Eigen::Vector3d thrust_vector_dot, double yaw_ref, double yaw_dot_ref);
+		Eigen::Vector3d computeDesiredTorque(const Eigen::Vector3d angular_velocity, 
+			const Eigen::Vector3d angular_velocity_ref, const Eigen::Vector3d angular_velocity_dot_ref);
+		Eigen::Vector4d computeRotorRPM(double thrust, const Eigen::Vector3d torque, 
+			const Eigen::Matrix4d mixer_matrix_inv); 
 
 	private:
 		// vehicle parameters
