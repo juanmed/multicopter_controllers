@@ -4,6 +4,7 @@
 #include <iostream>
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
+#include <linear_algebra_utils/utils.h>
 
 class FeedbackLinearizationController
 {
@@ -51,7 +52,7 @@ class FeedbackLinearizationController
  		Eigen::Vector3d e3_;
 
 
- 		Eigen::Vector3d	matrixToEulerZYX(const Eigen::Matrix3d R);
+ 		//Eigen::Vector3d	matrixToEulerZYX(const Eigen::Matrix3d R);
 };
 
 #endif

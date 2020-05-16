@@ -159,6 +159,7 @@ Eigen::Vector4d FeedbackLinearizationController::computeRotorRPM(double thrust, 
 	return rotors_rpm;
 }
 
+/*
 Eigen::Vector3d	FeedbackLinearizationController::matrixToEulerZYX(const Eigen::Matrix3d R)
 {
 	double roll, pitch, yaw;
@@ -171,3 +172,4 @@ Eigen::Vector3d	FeedbackLinearizationController::matrixToEulerZYX(const Eigen::M
   euler_angles << roll, pitch, yaw;
   return euler_angles;
 }
+*/

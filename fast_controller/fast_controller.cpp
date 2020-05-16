@@ -19,7 +19,7 @@ FastController::FastController(double mass, double max_thrust, double min_thrust
 	Kr_ = Kr;
 	Ko_ = Ko;
 
-	std::cout << "Initializing Feedback Linearization Controller" << std::endl;
+	std::cout << "Initializing Fast Controller" << std::endl;
 	std::cout << "mass: " << mass_ << std::endl;
 	std::cout << "Inertia Tensor: \n" << inertia_tensor_ << std::endl;
 	std::cout << "Proportional Gains: \n" << Kp_ << std::endl;
@@ -30,6 +30,20 @@ FastController::FastController(double mass, double max_thrust, double min_thrust
 	e1_ << 1., 0., 0.;
 	e2_ << 0., 1., 0.;
 	e3_ << 0., 0., 1.;
+}
+
+void FastController::computeAvalues(const Eigen::Vector3d p, const  Eigen::Vector3d p_ref, 
+	const Eigen::Vector3d v, const	Eigen::Vector3d v_ref, const Eigen::Vector3d a, 
+	const Eigen::Vector3d a_ref, const Eigen::Vector3d j, const Eigen::Vector3d j_ref, 
+	const Eigen::Vector3d s_ref, double thrust_ref)
+{
+	Eigen::Vector3d v_drag = Eigen::Vector3d::Zero();
+	v_drag = computeVelocityDrag(v, thrust_ref);
+	A_ = mass_ *  (-1.0*Kp_.asDiagonal()*(p - p_ref) -1.0*Kd_.asDiagonal()*(v - v_ref) + a_ref + gravity_*e3_  + v_drag/mass_ );
+	A_norm_ = A_.norm();
+	A_dot_ = mass_ * (-1.0 * Kp_.asDiagonal() * (v - v_ref) -1.0 * Kd_.asDiagonal() * (a - a_ref) + j_ref);
+	A_norm_dot_ = A_.dot(A_dot_) / A_norm_;
+	A_ddot_ = mass_ * (-1.0 * Kp_.asDiagonal() * (a - a_ref) - 1.0 * Kd_.asDiagonal() * (j - j_ref) + s_ref);
 }
 
 Eigen::Vector3d FastController::computeDesiredAcceleration(const Eigen::Vector3d p, const  Eigen::Vector3d p_ref, 
@@ -65,7 +79,7 @@ Eigen::Vector3d FastController::computeVelocityDrag(const Eigen::Vector3d v, dou
 {
 
 	Eigen::Vector3d v_drag = Eigen::Vector3d::Zero();
-	double gamma = 0;
+	double gamma = 0.;
 	// calculate velocity dependent drag
 	k_ = getThrustLinearizationSlope(thrust);
 	b_ = getThrustLinearizationIntercept(thrust);
@@ -91,7 +105,7 @@ Eigen::Vector3d FastController::computeCollectiveThrustVector(const Eigen::Vecto
 	Eigen::Vector3d thrust_vector, v_drag = Eigen::Vector3d::Zero();
 	// recompute velocity drag with new thrust
 	v_drag = computeVelocityDrag(v, collective_thrust); 
-	thrust_vector = mass_ * (a_des + gravity_*e3_ + (v_drag / mass_));
+	thrust_vector = mass_ * (a_des + gravity_*e3_ ) + v_drag;
 	thrust_vector = thrust_vector.normalized();
 	return collective_thrust * thrust_vector;
 }
@@ -197,10 +211,34 @@ Eigen::Matrix3d FastController::computeDesiredOrientationDot(const Eigen::Vector
 	*/
 
 	computeCvalues(wzb_des, wzb_des_dot, yaw_ref, yaw_dot_ref);
+  wyb_des = c_ / c_norm_;
+  wyb_des_dot = (c_norm_ * c_dot_ - c_ * c_norm_dot_) / std::pow(c_norm_, 2);
+  
+  wxb_des_dot = wyb_des.cross(wzb_des_dot) + wyb_des_dot.cross(wzb_des);
 
+	Rbw_des_dot << wxb_des_dot(0), wyb_des_dot(0), wzb_des_dot(0),
+           	  	 wxb_des_dot(1), wyb_des_dot(1), wzb_des_dot(1),
+              	 wxb_des_dot(2), wyb_des_dot(2), wzb_des_dot(2);
+
+  return Rbw_des_dot;
+}
+
+Eigen::Matrix3d FastController::computeDesiredOrientationDot2(const Eigen::Vector3d p, const  Eigen::Vector3d p_ref, 
+	const Eigen::Vector3d v, const	Eigen::Vector3d v_ref, const Eigen::Vector3d a, 
+	const Eigen::Vector3d a_ref, const Eigen::Vector3d j, const Eigen::Vector3d j_ref, 
+	const Eigen::Vector3d s_ref, double thrust_ref, double yaw_ref, double yaw_dot_ref)
+{
+	Eigen::Vector3d wzb_des, wzb_des_dot, wyb_des, wyb_des_dot, wxb_des_dot =Eigen::Vector3d::Zero();
+	Eigen::Matrix3d Rbw_des_dot = Eigen::Matrix3d::Zero();
+
+	computeAvalues(p, p_ref, v, v_ref, a, a_ref, j, j_ref, s_ref, thrust_ref);
+	wzb_des_dot = (A_norm_ * A_dot_ - A_ * A_norm_dot_) / std::pow(A_norm_, 2);
+
+	wzb_des = A_.normalized();
+	computeCvalues(wzb_des, wzb_des_dot, yaw_ref, yaw_dot_ref);
+  wyb_des = c_ / c_norm_;
   wyb_des_dot = (c_norm_ * c_dot_ - c_ * c_norm_dot_) / std::pow(c_norm_, 2);
 
-  wyb_des = c_ / c_norm_;
   wxb_des_dot = wyb_des.cross(wzb_des_dot) + wyb_des_dot.cross(wzb_des);
 
 	Rbw_des_dot << wxb_des_dot(0), wyb_des_dot(0), wzb_des_dot(0),
@@ -227,6 +265,36 @@ Eigen::Vector3d FastController::computeDesiredAngularVelocity(const Eigen::Matri
 	Eigen::Vector3d angular_velocity = Eigen::Vector3d::Zero();
 	angular_velocity = vex2(desired_orientation.transpose() * desired_orientation_dot);
 	return angular_velocity;
+}
+
+Eigen::Vector3d FastController::computeDesiredAngularVelocity2(const Eigen::Matrix3d Rbw, const Eigen::Matrix3d Rbw_des, 
+	const Eigen::Vector3d euler_dot_ref)
+{
+	Eigen::Vector3d gains, euler, euler_des, euler_dot, angular_velocity, u = Eigen::Vector3d::Zero();
+	double roll, pitch, yaw = 0.0;
+	// The Q matrix maps from body frame angular velocities to world frame eugler angle velocities
+	Eigen::Matrix3d Q = Eigen::Matrix3d::Zero(); 
+
+  gains << Kr_, Kr_, Kr_;
+  euler = matrixToEulerZYX(Rbw); //Rbw.eulerAngles(2,1,0);
+  euler_des = matrixToEulerZYX(Rbw_des); //Rbw_des.eulerAngles(2,1,0);
+
+  u = -1.0 * gains.asDiagonal() * (euler - euler_des);
+  euler_dot = u + euler_dot_ref;
+
+  /* compute w_b angular velocity commands as
+     w_b = Q.inv * uc
+     where  (euler dot) = K*(angular_velocity)
+     Q is -not- a gain matrix, see definition below */
+  roll = euler(0);
+  pitch = euler(1);
+  yaw = euler(2);
+  Q << 1.0, std::sin(roll) * std::tan(pitch), std::cos(roll) * std::tan(pitch),
+       0.0, std::cos(roll), -1.0*std::sin(roll), 
+       0.0, std::sin(roll)/std::cos(pitch), std::cos(roll)/std::cos(pitch);     
+  angular_velocity = Q.inverse() * euler_dot;
+
+  return angular_velocity;	
 }
 
 Eigen::Vector3d FastController::computeCollectiveThrustVectorDDot(const Eigen::Vector3d a, 
@@ -267,6 +335,37 @@ Eigen::Matrix3d FastController::computeDesiredOrientationDDot(const Eigen::Vecto
               	 	wxb_des_ddot(2), wyb_des_ddot(2), wzb_des_ddot(2);
 
   return Rbw_des_ddot;
+}
+
+Eigen::Matrix3d FastController::computeDesiredOrientationDDot2(const Eigen::Vector3d p, const  Eigen::Vector3d p_ref, 
+	const Eigen::Vector3d v, const	Eigen::Vector3d v_ref, const Eigen::Vector3d a, 
+	const Eigen::Vector3d a_ref, const Eigen::Vector3d j, const Eigen::Vector3d j_ref, 
+	const Eigen::Vector3d s_ref, const Eigen::Matrix3d desired_orientation, const Eigen::Matrix3d desired_orientation_dot,
+	double yaw_ref, double yaw_dot_ref, double yaw_ddot_ref, double thrust_ref)
+{
+	Eigen::Vector3d wzb_des, wzb_des_dot, wzb_des_ddot, wyb_des, wyb_des_dot, wyb_des_ddot, wxb_des_ddot = Eigen::Vector3d::Zero();
+	Eigen::Matrix3d Rbw_des_ddot = Eigen::Matrix3d::Zero();
+
+	computeAvalues(p, p_ref, v, v_ref, a, a_ref, j, j_ref, s_ref, thrust_ref);
+	wzb_des = desired_orientation * e3_;
+	wzb_des_dot = desired_orientation_dot * e3_;
+
+	wzb_des_ddot = (A_norm_ * A_ddot_ - A_ * (A_ddot_.dot(wzb_des) + A_dot_.dot(wzb_des_dot) ) - 2.0 * wzb_des_dot * A_dot_.dot(A_)  ) / std::pow(A_norm_, 2);
+
+	computeCvalues(wzb_des, wzb_des_dot, yaw_ref, yaw_dot_ref);
+	wyb_des = desired_orientation * e2_;
+	wyb_des_dot = desired_orientation_dot * e2_;
+
+	wyb_des_ddot = (c_norm_ * c_ddot_ - c_ * (c_ddot_.dot(wyb_des) + c_dot_.dot(wyb_des_dot) ) - 2.0 * wyb_des_dot * c_dot_.dot(c_)  ) / std::pow(c_norm_, 2);
+
+	wxb_des_ddot = 2.0 * wyb_des_dot.cross(wzb_des_dot) + wyb_des.cross(wzb_des_ddot) + wyb_des_ddot.cross(wzb_des);
+
+	Rbw_des_ddot << wxb_des_ddot(0), wyb_des_ddot(0), wzb_des_ddot(0),
+           	  	 	wxb_des_ddot(1), wyb_des_ddot(1), wzb_des_ddot(1),
+              	 	wxb_des_ddot(2), wyb_des_ddot(2), wzb_des_ddot(2);
+
+  return Rbw_des_ddot;
+
 }
 
 Eigen::Vector3d FastController::computeDesiredAngularVelocityDot(const Eigen::Matrix3d desired_orientation,
@@ -312,7 +411,7 @@ Eigen::Vector4d FastController::computeRotorRPM(double thrust, const Eigen::Vect
 	rotors_rpm = mixer_matrix_inv * general_input;
 	// the previous mapping returns rpm^2, then take sqrt of each element
 	for (uint i = 0; i < 4; i++){
-		rotors_rpm(i) = std::sqrt(rotors_rpm(i));
+		rotors_rpm(i) = clip_scalar(std::sqrt(rotors_rpm(i)), max_thrust_, min_thrust_);
 	}
 	return rotors_rpm;
 }
