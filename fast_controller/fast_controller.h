@@ -29,6 +29,8 @@ class FastController
 			double thrust);
 		Eigen::Vector3d computeCollectiveThrustVectorDot(const Eigen::Vector3d v, const	Eigen::Vector3d v_ref,
 			const Eigen::Vector3d a, const Eigen::Vector3d a_ref, const Eigen::Vector3d j_ref);
+		double computeCollectiveThrustDot(const Eigen::Vector3d thrust_vector_dot, const Eigen::Vector3d wzb_dot,
+			const Eigen::Vector3d wzb);
 		Eigen::Matrix3d computeDesiredOrientationDot(const Eigen::Vector3d thrust_vector, 
 			const Eigen::Vector3d thrust_vector_dot, double yaw_ref, double yaw_dot_ref);
 		Eigen::Matrix3d computeDesiredOrientationDot2(const Eigen::Vector3d p, const  Eigen::Vector3d p_ref, 
@@ -129,4 +131,4 @@ class FastController
 
 };
 
-#endif
+#endif /* FASTCONTROLLER_V12020_H */ 

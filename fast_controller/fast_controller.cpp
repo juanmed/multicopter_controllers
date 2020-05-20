@@ -110,6 +110,13 @@ Eigen::Vector3d FastController::computeCollectiveThrustVector(const Eigen::Vecto
 	return collective_thrust * thrust_vector;
 }
 
+double FastController::computeCollectiveThrustDot(const Eigen::Vector3d thrust_vector_dot, const Eigen::Vector3d wzb_dot, 
+	const Eigen::Vector3d wzb)
+{
+	double collective_thrust_dot = wzb_dot.dot(A_) + mass_ * wzb.dot(thrust_vector_dot);
+	return collective_thrust_dot;
+}
+
 Eigen::Matrix3d FastController::computeDesiredOrientation(const Eigen::Quaterniond q, 
 	const Eigen::Vector3d thrust_vector, double yaw_ref)
 {
