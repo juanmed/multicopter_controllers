@@ -59,6 +59,9 @@ class FastController
 		Eigen::Vector3d computeDesiredTorque2(const Eigen::Matrix3d orientation, 
 			const Eigen::Matrix3d desired_orientation, const Eigen::Vector3d desired_angular_acceleration,
 			const Eigen::Vector3d angular_velocity, const Eigen::Vector3d desired_angular_velocity);
+		Eigen::Vector3d computeDesiredTorque3(const Eigen::Matrix3d orientation, 
+			const Eigen::Matrix3d desired_orientation, const Eigen::Vector3d angular_velocity, 
+			const Eigen::Vector3d desired_angular_velocity);
 		Eigen::Vector4d computeRotorRPM(double thrust, const Eigen::Vector3d torque, 
 			const Eigen::Matrix4d mixer_matrix_inv); 
 

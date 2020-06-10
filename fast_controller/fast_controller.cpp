@@ -26,6 +26,7 @@ FastController::FastController(double mass, double max_thrust, double min_thrust
 	std::cout << "Derivative Gains: \n" << Kd_ << std::endl;
 	std::cout << "Integral Gains: \n" << Ki_ << std::endl;
 	std::cout << "Rotation Gain: \n" << Kr_ << std::endl;
+	std::cout << "Angular Velocity Gain: \n" << Kr_ << std::endl;
 
 	e1_ << 1., 0., 0.;
 	e2_ << 0., 1., 0.;
@@ -55,6 +56,7 @@ Eigen::Vector3d FastController::computeDesiredAcceleration(const Eigen::Vector3d
 	a_des = -1.0*Kp_.asDiagonal()*(p - p_ref) -1.0*Kd_.asDiagonal()*(v - v_ref) + a_ref; 
 
 	//@TODO implement anti-windup integral control
+	//@TODO implement thrust clipping
 
 	return a_des;
 }
@@ -410,6 +412,20 @@ Eigen::Vector3d FastController::computeDesiredTorque2(const Eigen::Matrix3d orie
 	return torque;
 }
 
+Eigen::Vector3d FastController::computeDesiredTorque3(const Eigen::Matrix3d orientation, 
+	const Eigen::Matrix3d desired_orientation, const Eigen::Vector3d angular_velocity, 
+	const Eigen::Vector3d desired_angular_velocity)
+{
+	Eigen::Vector3d torque, orientation_error, angular_velocity_error, input, coriolis_torque = Eigen::Vector3d::Zero();
+	orientation_error = computeOrientationError(orientation, desired_orientation);
+	angular_velocity_error = computeAngularVelocityError(orientation, desired_orientation, angular_velocity, desired_angular_velocity);	
+
+	input = -Kr_ * orientation_error - Ko_ * angular_velocity_error;
+	coriolis_torque = angular_velocity.cross( inertia_tensor_ * angular_velocity );
+	torque = input + coriolis_torque;
+	return torque;
+}
+
 Eigen::Vector4d FastController::computeRotorRPM(double thrust, const Eigen::Vector3d torque, 
 	const Eigen::Matrix4d mixer_matrix_inv)
 {
@@ -418,7 +434,9 @@ Eigen::Vector4d FastController::computeRotorRPM(double thrust, const Eigen::Vect
 	rotors_rpm = mixer_matrix_inv * general_input;
 	// the previous mapping returns rpm^2, then take sqrt of each element
 	for (uint i = 0; i < 4; i++){
-		rotors_rpm(i) = clip_scalar(std::sqrt(rotors_rpm(i)), max_thrust_, min_thrust_);
+		//rotors_rpm(i) = clip_scalar(std::sqrt(rotors_rpm(i)), max_thrust_, min_thrust_);
+		rotors_rpm(i) = std::sqrt(rotors_rpm(i));
+
 	}
 	return rotors_rpm;
 }
